@@ -30,15 +30,15 @@ jobs:
           sudo apt install -y attr nasm
           cd buildtools/jam
           make -j$(nproc)
-          cd ../../haiku
-          ./configure --host-only
-          ../buildtools/jam/jam0 -j$(nproc) -q '<build>package'
-          cd ..
+          cd /tmp
+          $GITHUB_WORKSPACE/haiku/configure --host-only
+          $GITHUB_WORKSPACE/buildtools/jam/jam0 -j$(nproc) -q '<build>package'
+          cd $GITHUB_WORKSPACE
           zip -j x86_64-linux-package-${{ steps.get_hrev.outputs.hrev }}.zip \
-            haiku/generated/objects/linux/lib/libroot_build.so \
-            haiku/generated/objects/linux/lib/libpackage_build.so \
-            haiku/generated/objects/linux/lib/libbe_build.so \
-            haiku/generated/objects/linux/x86_64/release/tools/package/package \
+            /tmp/objects/linux/lib/libroot_build.so \
+            /tmp/objects/linux/lib/libpackage_build.so \
+            /tmp/objects/linux/lib/libbe_build.so \
+            /tmp/objects/linux/x86_64/release/tools/package/package \
             haiku/License.md
       - name: Upload artifacts
         if: steps.get_hrev.outputs.hrev != steps.get_package.outputs.hrev
