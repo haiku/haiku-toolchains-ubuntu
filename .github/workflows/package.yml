@@ -1,0 +1,58 @@
+on:
+  schedule:
+    - cron:  '0 0 * * *'
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: write
+
+jobs:
+  build_package_tool:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check latest Haiku hrev
+        id: get_hrev
+        run: |
+          echo "hrev=$(curl -s https://git.haiku-os.org/haiku/refs/tags | sed -n 's/^.*>\(hrev[^<]*\).*$/\1/p' | head -n 1)" >> "$GITHUB_OUTPUT"
+      - name: Check latest package release
+        id: get_package
+        run: |
+          echo "hrev=$(curl -s https://api.github.com/repos/trungnt2910/haiku-tools/releases | sed -n 's/^.*"html_url": ".*releases\/tag\/package-\([^"]*\)".*$/\1/p' | head -n 1)" >> "$GITHUB_OUTPUT"
+      - name: Build packages
+        if: steps.get_hrev.outputs.hrev != steps.get_package.outputs.hrev
+        run: |
+          echo "Building package tool at ${{ steps.get_hrev.outputs.hrev }}"
+          git clone https://review.haiku-os.org/haiku --depth 1
+          git clone https://review.haiku-os.org/buildtools --depth 1
+          sudo apt install -y attr nasm
+          cd buildtools/jam
+          make -j$(nproc)
+          cd ../../haiku
+          ./configure --host-only
+          ../buildtools/jam/jam0 -j$(nproc) -q '<build>package'
+          cd ..
+          zip -j x86_64-linux-package-${{ steps.get_hrev.outputs.hrev }}.zip \
+            haiku/generated/objects/linux/lib/libroot_build.so \
+            haiku/generated/objects/linux/lib/libpackage_build.so \
+            haiku/generated/objects/linux/lib/libbe_build.so \
+            haiku/generated/objects/linux/x86_64/release/tools/package/package \
+            haiku/License.md
+      - name: Upload artifacts
+        if: steps.get_hrev.outputs.hrev != steps.get_package.outputs.hrev
+        uses: actions/upload-artifact@v3
+        with:
+          name: x86_64-linux-package-${{ steps.get_hrev.outputs.hrev }}
+          path: x86_64-linux-package-${{ steps.get_hrev.outputs.hrev }}.zip
+      - name: Create release
+        if: steps.get_hrev.outputs.hrev != steps.get_package.outputs.hrev
+        id: create-release
+        uses: marvinpinto/action-automatic-releases@latest
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          automatic_release_tag: package-${{ steps.get_hrev.outputs.hrev }}
+          prerelease: false
+          title: HPKG package tool ${{ steps.get_hrev.outputs.hrev }}
+          files: x86_64-linux-package-${{ steps.get_hrev.outputs.hrev }}.zip
