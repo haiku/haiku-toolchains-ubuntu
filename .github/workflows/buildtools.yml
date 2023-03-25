@@ -1,0 +1,51 @@
+on:
+  schedule:
+    - cron:  '0 0 * * *'
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: write
+
+jobs:
+  build_cross_tools:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check latest Haiku buildtools btrev
+        id: get_btrev
+        run: |
+          echo "btrev=$(curl -s https://git.haiku-os.org/buildtools/refs/tags | sed -n 's/^.*>\(btrev[^<]*\).*$/\1/p' | head -n 1)" >> "$GITHUB_OUTPUT"
+      - name: Check latest buildtools release
+        id: get_buildtools
+        run: |
+          echo "btrev=$(curl -s https://api.github.com/repos/trungnt2910/haiku-tools/releases | sed -n 's/^.*"html_url": ".*releases\/tag\/buildtools-\([^"]*\)".*$/\1/p' | head -n 1)" >> "$GITHUB_OUTPUT"
+      - name: Build buildtools
+        if: steps.get_btrev.outputs.btrev != steps.get_buildtools.outputs.btrev
+        run: |
+          echo "Building buildtools at ${{ steps.get_btrev.outputs.btrev }}"
+          git clone https://review.haiku-os.org/haiku --depth 1
+          git clone https://review.haiku-os.org/buildtools --depth 1
+          sudo apt install -y git nasm bc autoconf automake texinfo flex bison gawk build-essential unzip wget zip less zlib1g-dev libzstd-dev xorriso libtool python3 attr
+          cd haiku
+          mkdir generated.x86_64; cd generated.x86_64
+          ../configure --cross-tools-source ../../buildtools --build-cross-tools x86_64 -j$(nproc)
+          cd cross-tools-x86_64
+          zip -r ../../../x86_64-linux-buildtools-${{ steps.get_btrev.outputs.btrev }}.zip *
+      - name: Upload artifacts
+        if: steps.get_btrev.outputs.btrev != steps.get_buildtools.outputs.btrev
+        uses: actions/upload-artifact@v3
+        with:
+          name: x86_64-linux-buildtools-${{ steps.get_btrev.outputs.btrev }}
+          path: x86_64-linux-buildtools-${{ steps.get_btrev.outputs.btrev }}.zip
+      - name: Create release
+        if: steps.get_btrev.outputs.btrev != steps.get_buildtools.outputs.btrev
+        id: create-release
+        uses: marvinpinto/action-automatic-releases@latest
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          automatic_release_tag: buildtools-${{ steps.get_btrev.outputs.btrev }}
+          prerelease: false
+          title: Cross compiler for x86_64 Haiku ${{ steps.get_btrev.outputs.btrev }}
+          files: x86_64-linux-buildtools-${{ steps.get_btrev.outputs.btrev }}.zip
