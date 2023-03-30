@@ -23,7 +23,19 @@ jobs:
       - name: Check latest buildtools release
         id: get_buildtools
         run: |
-          echo "btrev=$(curl -s https://api.github.com/repos/trungnt2910/haiku-tools/releases | sed -n 's/^.*"html_url": ".*releases\/tag\/buildtools-${{ env.HAIKU_ARCH }}-\([^"]*\)".*$/\1/p' | head -n 1)" >> "$GITHUB_OUTPUT"
+          btrev=""
+          pageNum=1
+          while [ "$btrev" == "" ];
+          do
+            json=$(curl -s ${{ github.api_url }}/repos/${{ github.repository }}/releases?page=$pageNum)
+            pageNum=$((pageNum + 1))
+            echo $json | grep -q "html_url"
+            if [ "$?" != "0" ]; then
+              break
+            fi
+            btrev=$(echo $json | sed -n 's/^.*"html_url": ".*releases\/tag\/buildtools-${{ env.HAIKU_ARCH }}-\([^"]*\)".*$/\1/p' | head -n 1)
+          done
+          echo "btrev=$btrev" >> "$GITHUB_OUTPUT"
       - name: Build buildtools
         if: steps.get_btrev.outputs.btrev != steps.get_buildtools.outputs.btrev
         run: |
