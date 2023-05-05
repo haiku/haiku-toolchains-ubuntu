@@ -27,12 +27,14 @@ jobs:
             # Fetch using GitHub API
             json=$(curl -s ${{ github.api_url }}/repos/${{ github.repository }}/releases?page=$pageNum)
             pageNum=$((pageNum + 1))
-            echo $json | grep -q "html_url"
+            set +e
+            echo $json | jq -e -r '.[] | .html_url | select(contains("package"))'
+            set -e
             if [ "$?" != "0" ]; then
               # This means that we've passed the end and reached an empty page
               break
             fi
-            hrev=$(echo $json | sed -n 's/^.*"html_url": ".*releases\/tag\/package-\([^"]*\)".*$/\1/p' | head -n 1)
+            hrev=$(echo $json | jq -r '.[] | .html_url | select(contains("package"))' | sed -n 's/^.*releases\/tag\/package-\([^"]*\).*$/\1/p' | head -n 1)
           done
           echo "hrev=$hrev" >> "$GITHUB_OUTPUT"
       - name: Build packages
