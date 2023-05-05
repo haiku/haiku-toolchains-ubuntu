@@ -29,9 +29,7 @@ jobs:
           do
             json=$(curl -s ${{ github.api_url }}/repos/${{ github.repository }}/releases?page=$pageNum)
             pageNum=$((pageNum + 1))
-            set +e
-            echo $json | jq -e -r '.[] | .html_url | select(contains("buildtools"))'
-            set -e
+            echo $json | jq -e -r '.[] | .html_url'
             if [ "$?" != "0" ]; then
               break
             fi
