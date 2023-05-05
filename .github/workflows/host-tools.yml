@@ -1,0 +1,114 @@
+on:
+  schedule:
+    - cron:  '0 0 1 * *'
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: write
+
+env:
+  HAIKU_ARCH: x86_64
+
+jobs:
+  build_host_tools:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check latest Haiku hrev
+        id: get_hrev
+        run: |
+          echo "hrev=hrev$(git ls-remote --tags https://review.haiku-os.org/haiku "hrev*" | sed -e 's:.*refs/tags/hrev::g' | sort -nr | head -n1)" >> "$GITHUB_OUTPUT"
+      - name: Check latest host tools release
+        id: get_hosttools
+        run: |
+          hrev=""
+          pageNum=1
+          releaseUrl="${{ github.repository }}/releases/tag/hosttools-${{ env.HAIKU_ARCH }}-"
+          while [ "$hrev" == "" ];
+          do
+            # Fetch using GitHub API
+            json=$(curl -s ${{ github.api_url }}/repos/${{ github.repository }}/releases?page=$pageNum)
+            pageNum=$((pageNum + 1))
+            if [ $(echo $json | jq length) -eq 0 ]; then
+              # This means that we've passed the end and reached an empty array
+              break
+            fi
+            # Store array of revisions
+            revisions=($(echo $json | jq -e -r ".[] | .html_url | select(contains(\"hosttools\"))[${#releaseUrl}:]")) \
+              || continue
+            hrev=${revisions[0]}
+          done
+          echo "hrev=$hrev" >> "$GITHUB_OUTPUT"
+      - name: Build host tools
+        if: steps.get_hrev.outputs.hrev != steps.get_hosttools.outputs.hrev
+        run: |
+          echo "Building host tools at ${{ steps.get_hrev.outputs.hrev }}"
+          # grep -rn build/jam/ -e '<build>' | grep -o '<build>[^ ]*' | sort | uniq
+          # skip tools that don't build with --host-only:
+          # - get_package_dependencies
+          # - makebootable
+          # - vmdkheader
+          hosttools="
+            <build>addattr
+            <build>anyboot
+            <build>bfs_shell
+            <build>collectcatkeys
+            <build>copyattr
+            <build>create_image
+            <build>create_repository_config
+            <build>data_to_source
+            <build>fat_shell
+            <build>fixup_amiga_boot_checksum
+            <build>fixup_tos_boot_checksum
+            <build>fs_shell_command
+            <build>generate_attribute_stores
+            <build>linkcatkeys
+            <build>mbrtool
+            <build>mimeset
+            <build>package
+            <build>package_repo
+            <build>rc
+            <build>resattr
+            <build>rm_attrs
+            <build>set_haiku_revision
+            <build>settype
+            <build>setversion
+            <build>unzip
+            <build>update_package_requires
+            <build>vmdkimage
+            <build>xres
+          "
+          git clone https://review.haiku-os.org/haiku --depth 1
+          git clone https://review.haiku-os.org/buildtools --depth 1
+          sudo apt install -y git nasm bc autoconf automake texinfo flex bison \
+            gawk build-essential unzip wget zip less zlib1g-dev libzstd-dev \
+            xorriso libtool python3 attr
+          cd buildtools/jam
+          make -j$(nproc)
+          cd /tmp
+          $GITHUB_WORKSPACE/haiku/configure --host-only
+          $GITHUB_WORKSPACE/buildtools/jam/jam0 -j$(nproc) -q $hosttools
+          cd $GITHUB_WORKSPACE
+          zip -r -j x86_64-linux-hosttools-${{ steps.get_hrev.outputs.hrev }}.zip \
+            /tmp/objects/linux/lib \
+            /tmp/objects/linux/x86_64/release/tools \
+            haiku/License.md \
+            -x *.o
+      - name: Upload artifacts
+        if: steps.get_hrev.outputs.hrev != steps.get_hosttools.outputs.hrev
+        uses: actions/upload-artifact@v3
+        with:
+          name: x86_64-linux-hosttools-${{ steps.get_hrev.outputs.hrev }}
+          path: x86_64-linux-hosttools-${{ steps.get_hrev.outputs.hrev }}.zip
+      - name: Create release
+        if: steps.get_hrev.outputs.hrev != steps.get_hosttools.outputs.hrev
+        id: create-release
+        uses: marvinpinto/action-automatic-releases@latest
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          automatic_release_tag: hosttools-${{ steps.get_hrev.outputs.hrev }}
+          prerelease: false
+          title: Haiku host tools ${{ steps.get_hrev.outputs.hrev }}
+          files: x86_64-linux-hosttools-${{ steps.get_hrev.outputs.hrev }}.zip
