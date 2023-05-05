@@ -9,13 +9,12 @@ on:
 permissions:
   contents: write
 
-env:
-  HAIKU_ARCH: x86_64
-
 jobs:
   build_host_tools:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v3
       - name: Check latest Haiku hrev
         id: get_hrev
         run: |
@@ -23,24 +22,7 @@ jobs:
       - name: Check latest host tools release
         id: get_hosttools
         run: |
-          hrev=""
-          pageNum=1
-          releaseUrl="${{ github.repository }}/releases/tag/hosttools-${{ env.HAIKU_ARCH }}-"
-          while [ "$hrev" == "" ];
-          do
-            # Fetch using GitHub API
-            json=$(curl -s ${{ github.api_url }}/repos/${{ github.repository }}/releases?page=$pageNum)
-            pageNum=$((pageNum + 1))
-            if [ $(echo $json | jq length) -eq 0 ]; then
-              # This means that we've passed the end and reached an empty array
-              break
-            fi
-            # Store array of revisions
-            revisions=($(echo $json | jq -e -r ".[] | .html_url | select(contains(\"hosttools\"))[${#releaseUrl}:]")) \
-              || continue
-            hrev=${revisions[0]}
-          done
-          echo "hrev=$hrev" >> "$GITHUB_OUTPUT"
+          echo "hrev=$($GITHUB_WORKSPACE/fetch.sh --hosttools --repository=${{ github.repository }} --rev-only)" >> "$GITHUB_OUTPUT"
       - name: Build host tools
         if: steps.get_hrev.outputs.hrev != steps.get_hosttools.outputs.hrev
         run: |
