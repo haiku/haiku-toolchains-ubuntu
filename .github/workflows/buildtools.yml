@@ -19,7 +19,7 @@ jobs:
       - name: Check latest Haiku buildtools btrev
         id: get_btrev
         run: |
-          echo "btrev=$(git ls-remote --tags https://review.haiku-os.org/buildtools "btrev*" | sed -e 's:.*refs/tags/btrev::g' | sort -nr | head -n1)" >> "$GITHUB_OUTPUT"
+          echo "btrev=btrev$(git ls-remote --tags https://review.haiku-os.org/buildtools "btrev*" | sed -e 's:.*refs/tags/btrev::g' | sort -nr | head -n1)" >> "$GITHUB_OUTPUT"
       - name: Check latest buildtools release
         id: get_buildtools
         run: |
