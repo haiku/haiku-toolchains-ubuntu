@@ -24,6 +24,8 @@ once a day. If any new revisions are detected, it will perform a build.
 A script, `fetch.sh`, is included in this repo. This script will fetch the latest release of
 either the host tools or the build tools.
 
+Note that `jq` has to be installed in order for this script to work.
+
 To fetch the host tools:
 
 ```sh
