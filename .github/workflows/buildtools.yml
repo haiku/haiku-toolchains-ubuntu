@@ -9,11 +9,15 @@ on:
 permissions:
   contents: write
 
-env:
-  HAIKU_ARCH: x86_64
-
 jobs:
   build_cross_tools:
+    strategy:
+      fail-fast: false
+      matrix:
+        haiku_arch: [x86_64, x86_gcc2, arm64, riscv64]
+        include:
+          - haiku_arch: x86_gcc2
+            haiku_secondary_arch: x86
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -25,32 +29,46 @@ jobs:
       - name: Check latest buildtools release
         id: get_buildtools
         run: |
-          echo "btrev=$($GITHUB_WORKSPACE/fetch.sh --buildtools --arch=${{ env.HAIKU_ARCH }} --repository=${{ github.repository }} --rev-only)" >> "$GITHUB_OUTPUT"
+          echo "btrev=$($GITHUB_WORKSPACE/fetch.sh --buildtools --arch=${{ matrix.haiku_arch }} --repository=${{ github.repository }} --rev-only)" >> "$GITHUB_OUTPUT"
       - name: Build buildtools
-        if: steps.get_btrev.outputs.btrev != steps.get_buildtools.outputs.btrev
+        if: steps.get_btrev.outputs.btrev != steps.get_buildtools.outputs.btrev && !matrix.haiku_secondary_arch
         run: |
           echo "Building buildtools at ${{ steps.get_btrev.outputs.btrev }}"
           git clone https://review.haiku-os.org/haiku --depth 1
           git clone https://review.haiku-os.org/buildtools --depth 1
-          sudo apt install -y git nasm bc autoconf automake texinfo flex bison gawk build-essential unzip wget zip less zlib1g-dev libzstd-dev xorriso libtool python3 attr
+          sudo apt install -y git nasm bc autoconf automake texinfo flex bison \
+            gawk build-essential unzip wget zip less zlib1g-dev libzstd-dev \
+            xorriso libtool python3 attr
           cd haiku
-          mkdir generated.${{ env.HAIKU_ARCH }}; cd generated.${{ env.HAIKU_ARCH }}
-          ../configure --cross-tools-source ../../buildtools --build-cross-tools ${{ env.HAIKU_ARCH }} -j$(nproc)
-          cd cross-tools-${{ env.HAIKU_ARCH }}
-          zip -r ../../../x86_64-linux-buildtools-${{ env.HAIKU_ARCH }}-${{ steps.get_btrev.outputs.btrev }}.zip *
+          mkdir generated.${{ matrix.haiku_arch }}; cd generated.${{ matrix.haiku_arch }}
+          ../configure --cross-tools-source ../../buildtools --build-cross-tools ${{ matrix.haiku_arch }} -j$(nproc)
+          zip -r $GITHUB_WORKSPACE/x86_64-linux-buildtools-${{ matrix.haiku_arch }}-${{ steps.get_btrev.outputs.btrev }}.zip cross-tools-${{ matrix.haiku_arch }}
+      - name: Build hybrid buildtools
+        if: steps.get_btrev.outputs.btrev != steps.get_buildtools.outputs.btrev && matrix.haiku_secondary_arch
+        run: |
+          echo "Building hybrid buildtools at ${{ steps.get_btrev.outputs.btrev }}"
+          git clone https://review.haiku-os.org/haiku --depth 1
+          git clone https://review.haiku-os.org/buildtools --depth 1
+          sudo apt install -y git nasm bc autoconf automake texinfo flex bison \
+            gawk build-essential unzip wget zip less zlib1g-dev libzstd-dev \
+            xorriso libtool python3 attr gcc-multilib
+          cd haiku
+          mkdir generated.${{ matrix.haiku_arch }}; cd generated.${{ matrix.haiku_arch }}
+          ../configure --cross-tools-source ../../buildtools --build-cross-tools ${{ matrix.haiku_arch }} --build-cross-tools ${{ matrix.haiku_secondary_arch }} -j$(nproc)
+          zip -r $GITHUB_WORKSPACE/x86_64-linux-buildtools-${{ matrix.haiku_arch }}-${{ steps.get_btrev.outputs.btrev }}.zip cross-tools-*
       - name: Upload artifacts
         if: steps.get_btrev.outputs.btrev != steps.get_buildtools.outputs.btrev
         uses: actions/upload-artifact@v3
         with:
-          name: x86_64-linux-buildtools-${{ env.HAIKU_ARCH }}-${{ steps.get_btrev.outputs.btrev }}
-          path: x86_64-linux-buildtools-${{ env.HAIKU_ARCH }}-${{ steps.get_btrev.outputs.btrev }}.zip
+          name: x86_64-linux-buildtools-${{ matrix.haiku_arch }}-${{ steps.get_btrev.outputs.btrev }}
+          path: x86_64-linux-buildtools-${{ matrix.haiku_arch }}-${{ steps.get_btrev.outputs.btrev }}.zip
       - name: Create release
         if: steps.get_btrev.outputs.btrev != steps.get_buildtools.outputs.btrev
         id: create-release
         uses: marvinpinto/action-automatic-releases@latest
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: buildtools-${{ env.HAIKU_ARCH }}-${{ steps.get_btrev.outputs.btrev }}
+          automatic_release_tag: buildtools-${{ matrix.haiku_arch }}-${{ steps.get_btrev.outputs.btrev }}
           prerelease: false
-          title: Cross compiler for ${{ env.HAIKU_ARCH }} Haiku ${{ steps.get_btrev.outputs.btrev }}
-          files: x86_64-linux-buildtools-${{ env.HAIKU_ARCH }}-${{ steps.get_btrev.outputs.btrev }}.zip
+          title: Cross compiler for ${{ matrix.haiku_arch }} Haiku ${{ steps.get_btrev.outputs.btrev }}
+          files: x86_64-linux-buildtools-${{ matrix.haiku_arch }}-${{ steps.get_btrev.outputs.btrev }}.zip
