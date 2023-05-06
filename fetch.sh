@@ -1,6 +1,6 @@
 #!/bin/bash -e
 
-GITHUB_REPOSITORY="trungnt2910/haiku-tools"
+GITHUB_REPOSITORY="haiku/haiku-tools"
 HAIKU_ARCH="x86_64"
 
 for opt in "$@"
