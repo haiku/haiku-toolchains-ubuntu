@@ -57,7 +57,7 @@ do
         break
     fi
     # Store array of revisions
-    revisions=($(echo $json | jq -e -r ".[] | .html_url | select(contains(\"$PACKAGE_NAME\"))[${#releaseUrl}:]")) \
+    revisions=($(echo $json | jq -e -r ".[] | .html_url | select(contains(\"$PACKAGE_NAME\") and contains(\"$HAIKU_ARCH_SUFFIX\"))[${#releaseUrl}:]")) \
         || continue
     latestRev=${revisions[0]}
 done
