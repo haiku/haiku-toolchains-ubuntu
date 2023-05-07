@@ -56,6 +56,11 @@ do
         # This means that we've passed the end and reached an empty array
         break
     fi
+    if [ $(echo $json | jq 'objects // {} | has("message")') == "true" ]; then
+        # API has return an error object
+        echo "Unable to fetch releases from GitHub API"
+        exit 2
+    fi
     # Store array of revisions
     revisions=($(echo $json | jq -e -r ".[] | .html_url | select(contains(\"$PACKAGE_NAME\") and contains(\"$HAIKU_ARCH_SUFFIX\"))[${#releaseUrl}:]")) \
         || continue
