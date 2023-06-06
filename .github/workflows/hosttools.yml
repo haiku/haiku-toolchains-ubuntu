@@ -64,6 +64,7 @@ jobs:
           "
           git clone https://review.haiku-os.org/haiku --depth 1
           git clone https://review.haiku-os.org/buildtools --depth 1
+          sudo apt update
           sudo apt install -y git nasm bc autoconf automake texinfo flex bison \
             gawk build-essential unzip wget zip less zlib1g-dev libzstd-dev \
             xorriso libtool python3 attr
