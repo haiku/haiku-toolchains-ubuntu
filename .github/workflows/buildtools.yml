@@ -60,7 +60,7 @@ jobs:
           zip -r $GITHUB_WORKSPACE/x86_64-linux-buildtools-${{ matrix.haiku_arch }}-${{ steps.get_btrev.outputs.btrev }}.zip cross-tools-*
       - name: Upload artifacts
         if: steps.get_btrev.outputs.btrev != steps.get_buildtools.outputs.btrev
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: x86_64-linux-buildtools-${{ matrix.haiku_arch }}-${{ steps.get_btrev.outputs.btrev }}
           path: x86_64-linux-buildtools-${{ matrix.haiku_arch }}-${{ steps.get_btrev.outputs.btrev }}.zip
