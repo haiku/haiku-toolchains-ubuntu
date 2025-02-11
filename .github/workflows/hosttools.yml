@@ -81,7 +81,7 @@ jobs:
             -x *.o
       - name: Upload artifacts
         if: steps.get_hrev.outputs.hrev != steps.get_hosttools.outputs.hrev
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: x86_64-linux-hosttools-${{ steps.get_hrev.outputs.hrev }}
           path: x86_64-linux-hosttools-${{ steps.get_hrev.outputs.hrev }}.zip
