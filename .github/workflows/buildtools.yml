@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
       - name: Check latest Haiku buildtools btrev
         id: get_btrev
         run: |
@@ -60,7 +60,7 @@ jobs:
           zip -r $GITHUB_WORKSPACE/x86_64-linux-buildtools-${{ matrix.haiku_arch }}-${{ steps.get_btrev.outputs.btrev }}.zip cross-tools-*
       - name: Upload artifacts
         if: steps.get_btrev.outputs.btrev != steps.get_buildtools.outputs.btrev
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: x86_64-linux-buildtools-${{ matrix.haiku_arch }}-${{ steps.get_btrev.outputs.btrev }}
           path: x86_64-linux-buildtools-${{ matrix.haiku_arch }}-${{ steps.get_btrev.outputs.btrev }}.zip
